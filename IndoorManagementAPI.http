@@ -1,0 +1,6 @@
+@IndoorManagementAPI_HostAddress = http://localhost:5143
+
+GET {{IndoorManagementAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
