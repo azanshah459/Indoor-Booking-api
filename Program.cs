@@ -75,7 +75,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReact", policy =>
     {
-        policy.WithOrigins("http://localhost:5173","https://your-app-name.vercel.app")
+        policy.WithOrigins("http://localhost:5173",
+            "https://indoor-booking-api-production.up.railway.app",
+            "https://indoor-booking-client.vercel.app")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
