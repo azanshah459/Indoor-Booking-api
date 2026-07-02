@@ -13,4 +13,4 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=build /app/out .
 
-ENTRYPOINT ["sh", "-c", "dotnet IndoorManagementAPI.dll --urls http://+:$PORT"]
+ENTRYPOINT ["sh", "-c", "dotnet IndoorManagementAPI.dll --urls http://+:${PORT:-80}"]

@@ -79,11 +79,17 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReact", policy =>
     {
-        policy.WithOrigins("http://localhost:5173",
-            "https://indoor-booking-api-production.up.railway.app",
-            "https://indoor-booking-client-azanshah.vercel.app")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        policy.SetIsOriginAllowed(origin =>
+        {
+            var allowed = new[]
+            {
+                "http://localhost:5173",
+                "https://indoor-booking-client-azanshah.vercel.app"
+            };
+            return allowed.Contains(origin);
+        })
+        .AllowAnyHeader()
+        .AllowAnyMethod();
     });
 });
 
@@ -116,6 +122,7 @@ app.UseAuthorization();
 app.MapControllers();
 try
 {
+    Console.WriteLine($"Railway PORT variable: {Environment.GetEnvironmentVariable("PORT")}");
     Console.WriteLine("✅ App starting on http://+:8080");
     app.Run();
 }
