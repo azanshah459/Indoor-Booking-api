@@ -77,13 +77,25 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins("http://localhost:5173",
             "https://indoor-booking-api-production.up.railway.app",
-            "https://indoor-booking-client-azanshah.vercel.app/")
+            "https://indoor-booking-client-azanshah.vercel.app")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
 });
 
 var app = builder.Build();
+try
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.CanConnect();
+    Console.WriteLine("✅ Database connection successful");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"❌ Database connection failed: {ex.Message}");
+    Console.WriteLine($"❌ Inner exception: {ex.InnerException?.Message}");
+}
 
 //if (app.Environment.IsDevelopment())
 //{
