@@ -56,6 +56,10 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"]!;
 
+Console.WriteLine($"JWT SecretKey present: {!string.IsNullOrEmpty(secretKey)}");
+Console.WriteLine($"JWT Issuer: {jwtSettings["Issuer"]}");
+Console.WriteLine($"JWT Audience: {jwtSettings["Audience"]}");
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -110,4 +114,13 @@ app.UseCors("AllowReact");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.Run();
+try
+{
+    app.Run();
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"❌ App crashed: {ex.Message}");
+    Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
+    throw;
+}
