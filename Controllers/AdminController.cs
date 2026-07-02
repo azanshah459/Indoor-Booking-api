@@ -20,13 +20,16 @@ namespace IndoorManagementAPI.Controllers
         [HttpGet("dashboard")]
         public async Task<IActionResult> GetDashboard()
         {
-            var today = DateTime.Today;
+            var today = DateTime.UtcNow.Date;
             var firstDayOfMonth = new DateTime(today.Year, today.Month, 1);
 
             var totalBookings = await _context.Bookings.CountAsync();
 
+            var date = DateTime.UtcNow.Date;
+            var startOfToday = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+            var endOfToday = startOfToday.AddDays(1);
             var todayBookings = await _context.Bookings
-                .Where(b => b.BookingDate.Date == today)
+                .Where(b => b.BookingDate >= startOfToday && b.BookingDate < endOfToday)
                 .CountAsync();
 
             var activeBookings = await _context.Bookings
@@ -81,13 +84,18 @@ namespace IndoorManagementAPI.Controllers
         [HttpGet("bookings/today")]
         public async Task<IActionResult> GetTodayBookings()
         {
-            var today = DateTime.Today;
+            var today = DateTime.UtcNow.Date;
+            var date = DateTime.UtcNow.Date;
+            var startOfDay = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+            var endOfDay = startOfDay.AddDays(1);
 
+            var startOfToday = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+            var endOfToday = startOfToday.AddDays(1);
             var bookings = await _context.Bookings
                 .Include(b => b.User)
                 .Include(b => b.Slot)
                     .ThenInclude(s => s.Ground)
-                .Where(b => b.BookingDate.Date == today)
+                .Where(b => b.BookingDate >= startOfToday && b.BookingDate < endOfToday)
                 .Select(b => new
                 {
                     b.BookingId,

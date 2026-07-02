@@ -15,15 +15,22 @@ namespace IndoorManagementAPI.Services
 
         public async Task GenerateSlotsForDateAsync(int groundId, DateTime date)
         {
+            // Use explicit date range instead of .Date property
+            // PostgreSQL compatible approach
+            var startOfDay = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+            var endOfDay = startOfDay.AddDays(1);
+
             var existingSlots = await _context.Slots
-                .Where(s => s.GroundId == groundId && s.Date.Date == date.Date)
+                .Where(s => s.GroundId == groundId
+                         && s.Date >= startOfDay
+                         && s.Date < endOfDay)
                 .ToListAsync();
 
             if (existingSlots.Any()) return;
 
             var slots = new List<Slot>();
 
-            // 12 AM to 6 AM (6 slots) — comes first in display
+            // 12 AM to 6 AM (6 slots)
             for (int hour = 0; hour < 6; hour++)
             {
                 slots.Add(new Slot
@@ -44,9 +51,6 @@ namespace IndoorManagementAPI.Services
                     GroundId = groundId,
                     Date = date.Date,
                     StartTime = new TimeSpan(hour, 0, 0),
-                    // For 11PM slot EndTime is next hour = 24:00:00
-                    // SQL Server doesn't support TimeSpan > 23:59:59
-                    // So we store it as 23:59:59 instead
                     EndTime = hour == 23
                         ? new TimeSpan(23, 59, 59)
                         : new TimeSpan(hour + 1, 0, 0),

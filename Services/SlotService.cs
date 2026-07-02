@@ -37,19 +37,26 @@ namespace IndoorManagementAPI.Services
 
         public async Task<List<SlotResponseDto>> GetAvailableSlotsByGroundAsync(int groundId, DateTime? date = null)
         {
-            // Auto generate slots for this date if they don't exist
             if (date.HasValue)
             {
                 await _slotGenerator.GenerateSlotsForDateAsync(groundId, date.Value);
             }
 
+            var now = DateTime.UtcNow;
+
             var query = _context.Slots
                 .Include(s => s.Ground)
-                .Where(s => s.GroundId == groundId && s.IsAvailable == true);
+                .Where(s => s.GroundId == groundId
+                         && s.IsAvailable == true
+                         && (s.HeldUntil == null || s.HeldUntil < now));
 
             if (date.HasValue)
             {
-                query = query.Where(s => s.Date.Date == date.Value.Date);
+                // PostgreSQL compatible date comparison
+                var startOfDay = DateTime.SpecifyKind(date.Value.Date, DateTimeKind.Utc);
+                var endOfDay = startOfDay.AddDays(1);
+
+                query = query.Where(s => s.Date >= startOfDay && s.Date < endOfDay);
             }
 
             var slots = await query
@@ -114,6 +121,7 @@ namespace IndoorManagementAPI.Services
                 GroundId = slot.GroundId,
                 GroundName = slot.Ground?.Name ?? string.Empty,
                 GroundType = slot.Ground?.Type ?? string.Empty,
+                HourlyRate = slot.Ground?.HourlyRate ?? 0,
                 Date = slot.Date,
                 StartTime = slot.StartTime,
                 EndTime = slot.EndTime,

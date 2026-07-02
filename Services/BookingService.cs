@@ -35,14 +35,15 @@ namespace IndoorManagementAPI.Services
                 throw new Exception("User not found.");
 
             // Step 4 - Mark slot as unavailable and create booking
-            slot.IsAvailable = false;
+            //slot.IsAvailable = false;
 
             var booking = new Booking
             {
                 UserId = userId,
                 SlotId = dto.SlotId,
-                BookingDate = DateTime.Now,
-                Status = "Confirmed"
+                BookingDate = DateTime.UtcNow,
+                Status = "PendingPayment",
+                PaymentStatus = "Unpaid"
             };
 
             _context.Bookings.Add(booking);
@@ -55,6 +56,7 @@ namespace IndoorManagementAPI.Services
 
         public async Task<List<BookingResponseDto>> GetMyBookingsAsync(int userId)
         {
+            await ExpireOldPendingBookingsAsync(userId);
             var bookings = await _context.Bookings
                 .Include(b => b.User)
                 .Include(b => b.Slot)
@@ -63,6 +65,28 @@ namespace IndoorManagementAPI.Services
                 .ToListAsync();
 
             return bookings.Select(b => MapToDto(b, b.User!, b.Slot!)).ToList();
+        }
+
+        public async Task ExpireOldPendingBookingsAsync(int userId)
+        {
+            var now = DateTime.UtcNow;
+
+            var expiredBookings = await _context.Bookings
+                .Include(b => b.Slot)
+                .Where(b => b.UserId == userId
+                         && b.Status == "PendingPayment"
+                         && b.Slot!.HeldUntil != null
+                         && b.Slot.HeldUntil < now)
+                .ToListAsync();
+
+            foreach (var booking in expiredBookings)
+            {
+                booking.Status = "Expired";
+                booking.Slot!.HeldUntil = null;
+            }
+
+            if (expiredBookings.Any())
+                await _context.SaveChangesAsync();
         }
 
         public async Task<List<BookingResponseDto>> GetAllBookingsAsync()
@@ -87,6 +111,63 @@ namespace IndoorManagementAPI.Services
             if (booking == null) return null;
 
             return MapToDto(booking, booking.User!, booking.Slot!);
+        }
+
+        public async Task<MultiBookingResponseDto> CreateMultipleBookingsAsync(int userId, MultiBookingRequestDto dto)
+        {
+            if (dto.SlotIds == null || !dto.SlotIds.Any())
+                throw new Exception("No slots selected.");
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+                throw new Exception("User not found.");
+
+            var now = DateTime.UtcNow;
+            // Load all requested slots at once
+            var slots = await _context.Slots
+                .Include(s => s.Ground)
+                .Where(s => dto.SlotIds.Contains(s.SlotId))
+                .ToListAsync();
+
+            // Verify all slots exist
+            if (slots.Count != dto.SlotIds.Count)
+                throw new Exception("One or more slots not found.");
+
+            // Verify all slots are available
+            var unavailable = slots.Where(s => !s.IsAvailable || (s.HeldUntil != null && s.HeldUntil > now)).ToList();
+            if (unavailable.Any())
+                throw new Exception($"Some slots are no longer available. Please refresh and try again.");
+
+            // Create a booking for each slot
+            var bookings = new List<Booking>();
+            var holdExpiry = now.AddMinutes(3);
+            foreach (var slot in slots)
+            {
+                slot.HeldUntil = holdExpiry;
+                var booking = new Booking
+                {
+                    UserId = userId,
+                    SlotId = slot.SlotId,
+                    BookingDate = DateTime.UtcNow,
+                    Status = "PendingPayment",
+                    PaymentStatus = "Unpaid",
+                    AmountPaid = slot.Ground!.HourlyRate
+                };
+                bookings.Add(booking);
+            }
+
+            _context.Bookings.AddRange(bookings);
+            await _context.SaveChangesAsync();
+
+            var totalAmount = slots.Sum(s => s.Ground!.HourlyRate);
+            var bookingDtos = bookings.Select((b, i) => MapToDto(b, user, slots[i])).ToList();
+
+            return new MultiBookingResponseDto
+            {
+                Bookings = bookingDtos,
+                TotalAmount = totalAmount,
+                BookingIds = bookings.Select(b => b.BookingId).ToList()
+            };
         }
 
         public async Task<bool> CancelBookingAsync(int bookingId, int userId)
@@ -128,7 +209,10 @@ namespace IndoorManagementAPI.Services
                 StartTime = slot.StartTime,
                 EndTime = slot.EndTime,
                 BookingDate = booking.BookingDate,
-                Status = booking.Status
+                Status = booking.Status,
+                PaymentStatus = booking.PaymentStatus,
+                AmountPaid = booking.AmountPaid,
+                HourlyRate = slot.Ground?.HourlyRate ?? 0
             };
         }
     }

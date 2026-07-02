@@ -13,5 +13,8 @@
         public TimeSpan EndTime { get; set; }
         public DateTime BookingDate { get; set; }
         public string Status { get; set; } = string.Empty;
+        public string? PaymentStatus { get; set; }
+        public decimal AmountPaid { get; set; }
+        public decimal HourlyRate { get; set; }
     }
 }

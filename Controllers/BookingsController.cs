@@ -40,6 +40,21 @@ namespace IndoorManagementAPI.Controllers
             }
         }
 
+        [HttpPost("multiple")]
+        public async Task<IActionResult> CreateMultiple([FromBody] MultiBookingRequestDto dto)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var result = await _bookingService.CreateMultipleBookingsAsync(userId, dto);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [HttpGet("my")]
         public async Task<IActionResult> GetMyBookings()
         {
@@ -87,3 +102,4 @@ namespace IndoorManagementAPI.Controllers
         }
     }
 }
+
