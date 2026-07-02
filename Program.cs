@@ -116,6 +116,7 @@ app.UseAuthorization();
 app.MapControllers();
 try
 {
+    Console.WriteLine("✅ App starting on http://+:8080");
     app.Run();
 }
 catch (Exception ex)
